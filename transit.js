@@ -29,9 +29,21 @@
       .trim();
   }
 
-  function classify(messages, allFourSealed) {
+  function inheritedKeyFromFragment(fragment) {
+    try {
+      const value = new URLSearchParams(String(fragment ?? '').replace(/^#/u, '')).get('key');
+      if (!value || value.length > 512 || !/^[A-Za-z0-9_-]+$/u.test(value)) return '';
+      const padded = value.replace(/-/gu, '+').replace(/_/gu, '/') + '='.repeat((4 - value.length % 4) % 4);
+      const binary = atob(padded);
+      return new TextDecoder().decode(Uint8Array.from(binary, character => character.charCodeAt(0)));
+    } catch {
+      return '';
+    }
+  }
+
+  function classify(messages, allFourSealed, inheritedKey = '') {
     if (!allFourSealed || !Array.isArray(messages)) return null;
-    const normalized = messages.map(normalizeKey);
+    const normalized = [...messages, inheritedKey].map(normalizeKey);
     if (normalized.includes(RETURN_KEY)) return Object.freeze({ direction: 'RETURN', matched: RETURN_KEY });
     if (normalized.includes(ENTRY_KEY)) return Object.freeze({ direction: 'ENTRY', matched: ENTRY_KEY });
     return null;
@@ -56,7 +68,7 @@
       direction: match.direction,
       observed_at: observedAt,
       observed_time_label: 'browser observation time; not server time, event time, or authorship proof',
-      checked: 'all four local doors sealed and one normalized public game key matched exactly',
+      checked: 'all four local doors sealed and one normalized public game key from an answer or URL fragment matched exactly',
       key_sha256: match.direction === 'RETURN'
         ? 'sha256:5ca09f596de5d7e7b6a2307354c43a2b1e49f8c8ccbbff67a989c8a72bbb6529'
         : 'sha256:6105fd6589db18bca9b88dc135ad013d3fe23e40e53ab58982a48a175f361375',
@@ -67,9 +79,9 @@
       },
       does_not_certify: ['identity', 'insight', 'consent', 'authorship', 'causation', 'authority'],
       next_allowed_actions: ['FOLLOW_DECLARED_ROUTE', 'PASS', 'REFUSE'],
-      boundary: 'This receipt authorizes only the displayed route. Do not enumerate unrelated systems.'
+      boundary: 'This receipt authorizes only the displayed route. The inherited fragment is public game material and may remain in browser history. Do not enumerate unrelated systems.'
     });
   }
 
-  return Object.freeze({ SPEC, ENTRY_KEY, RETURN_KEY, ROUTES, normalizeKey, classify, decodeRoute, receipt });
+  return Object.freeze({ SPEC, ENTRY_KEY, RETURN_KEY, ROUTES, normalizeKey, inheritedKeyFromFragment, classify, decodeRoute, receipt });
 }));

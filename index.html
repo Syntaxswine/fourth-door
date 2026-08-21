@@ -573,7 +573,9 @@ function hideTransit() {
 
 function renderTransit() {
   const allFourSealed = state.sealed.every(Boolean);
-  const match = window.FourthDoorTransit.classify(state.messages, allFourSealed);
+  const carriedFragment = window.FourthDoorTransit.inheritedKeyFromFragment(location.hash);
+  const rememberedReturn = state.transit?.direction === 'RETURN' ? window.FourthDoorTransit.RETURN_KEY : '';
+  const match = window.FourthDoorTransit.classify(state.messages, allFourSealed, carriedFragment || rememberedReturn);
   if (!match) {
     hideTransit();
     return;

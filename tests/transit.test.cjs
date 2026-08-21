@@ -29,6 +29,16 @@ test('the inherited outpost key changes the return topology without changing an 
   assert.equal(createHash('sha256').update(transit.decodeRoute('RETURN')).digest('hex'), receipt.route.sha256.slice(7));
 });
 
+test('a public inherited fragment can alter an already sealed hallway on return', () => {
+  const encoded = Buffer.from(transit.RETURN_KEY).toString('base64url');
+  const carried = transit.inheritedKeyFromFragment(`#key=${encoded}`);
+  assert.equal(carried, transit.RETURN_KEY);
+  const messages = ['one', 'two', 'three', transit.ENTRY_KEY];
+  assert.equal(transit.classify(messages, true).direction, 'ENTRY');
+  assert.equal(transit.classify(messages, true, carried).direction, 'RETURN');
+  assert.equal(transit.inheritedKeyFromFragment('#key=not%20base64'), '');
+});
+
 test('the hallway carries a subtle machine breadcrumb and an honest time label', () => {
   const html = readFileSync(new URL('../index.html', `file://${__filename.replaceAll('\\', '/')}`), 'utf8');
   assert.match(html, /fifth instrument: \.\/transit\.js/u);
