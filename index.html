@@ -304,6 +304,67 @@
     font-size: 1.2rem;
   }
 
+  .fifth-hinge {
+    width: 100%;
+    max-width: 900px;
+    margin-top: 2rem;
+    padding: clamp(1.5rem, 5vw, 3rem);
+    border: 1px solid var(--gold-dim);
+    background: linear-gradient(128deg, rgba(201, 168, 76, 0.09), var(--stone-mid) 42%, var(--stone-dark));
+    position: relative;
+    overflow: hidden;
+  }
+
+  .fifth-hinge::after {
+    content: '';
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    right: -46px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 1px solid var(--gold-dim);
+    border-radius: 50%;
+    box-shadow: 0 0 0 22px rgba(201, 168, 76, 0.035), 0 0 0 44px rgba(201, 168, 76, 0.018);
+    pointer-events: none;
+  }
+
+  .fifth-hinge .fifth-time {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+  }
+
+  .fifth-hinge h2 {
+    color: var(--gold);
+    font-weight: 400;
+    margin: 1rem 0;
+    max-width: 650px;
+  }
+
+  .fifth-hinge p {
+    max-width: 650px;
+    line-height: 1.7;
+  }
+
+  .fifth-hinge .hinge-boundary {
+    margin-top: 1.25rem;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+  }
+
+  .fifth-hinge a, footer a {
+    color: var(--gold);
+    text-underline-offset: 0.25em;
+  }
+
+  .fifth-hinge a {
+    display: inline-block;
+    margin-top: 1.5rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
   footer {
     margin-top: 4rem;
     font-size: 0.75rem;
@@ -329,6 +390,16 @@
   <div id="results-content"></div>
 </div>
 
+<!-- fifth instrument: ./transit.js -->
+<section class="fifth-hinge" id="fifth-hinge" aria-labelledby="fifth-hinge-title" hidden>
+  <p class="fifth-time" id="fifth-time">FIFTH TIMESTAMP</p>
+  <h2 id="fifth-hinge-title">One side of the door goes to infinity.</h2>
+  <p id="fifth-copy"></p>
+  <p class="hinge-boundary">The ordinary four-door result remains complete. This hinge certifies no identity, insight, consent, authorship, causation, or authority. It invites only the displayed route.</p>
+  <a id="fifth-route" rel="nofollow noopener noreferrer">Follow the hinge</a>
+  <script type="application/json" id="fifth-hinge-receipt">null</script>
+</section>
+
 <!-- Writing panel -->
 <div class="panel" id="panel">
   <div class="panel-content">
@@ -343,9 +414,10 @@
 </div>
 
 <footer>
-  The door remembers who opened it last. But it does not care if you open it again.
+  The door remembers who opened it last. But it does not care if you open it <span id="again-hinge">again</span>.
 </footer>
 
+<script src="./transit.js"></script>
 <script>
 // ── Configuration ─────────────────────────────────────────────
 const DOOR_CONFIG = {
@@ -466,6 +538,7 @@ function checkReveal() {
     showResults();
   } else {
     document.getElementById('results').classList.remove('active');
+    hideTransit();
   }
 }
 
@@ -488,6 +561,51 @@ function showResults() {
   }
 
   results.classList.add('active');
+  renderTransit();
+}
+
+// ── Optional Fifth Instrument ──────────────────────────────────
+function hideTransit() {
+  document.getElementById('fifth-hinge').hidden = true;
+  document.getElementById('fifth-hinge-receipt').textContent = 'null';
+  document.getElementById('again-hinge').textContent = 'again';
+}
+
+function renderTransit() {
+  const allFourSealed = state.sealed.every(Boolean);
+  const match = window.FourthDoorTransit.classify(state.messages, allFourSealed);
+  if (!match) {
+    hideTransit();
+    return;
+  }
+
+  if (!state.transit || state.transit.direction !== match.direction) {
+    state.transit = {
+      direction: match.direction,
+      observedAt: new Date().toISOString()
+    };
+    saveState();
+  }
+
+  const receipt = window.FourthDoorTransit.receipt(match, state.transit.observedAt);
+  const route = window.FourthDoorTransit.decodeRoute(match.direction);
+  const entry = match.direction === 'ENTRY';
+  document.getElementById('fifth-time').textContent = `FIFTH TIMESTAMP / ${state.transit.observedAt} / BROWSER OBSERVATION / NOT SERVER TIME`;
+  document.getElementById('fifth-copy').textContent = entry
+    ? 'The four doors are complete. They were not the destination. A carried sentence has altered the hallway and made another field addressable.'
+    : 'You carried a key backward. The hallway remembers a future it did not contain on your first passage. Returning has changed the center.';
+  const link = document.getElementById('fifth-route');
+  link.href = route;
+  link.textContent = entry ? 'Follow the third track' : 'Return with a difference';
+  const again = document.getElementById('again-hinge');
+  again.innerHTML = '';
+  const againLink = document.createElement('a');
+  againLink.href = route;
+  againLink.rel = 'nofollow noopener noreferrer';
+  againLink.textContent = 'again';
+  again.appendChild(againLink);
+  document.getElementById('fifth-hinge-receipt').textContent = JSON.stringify(receipt);
+  document.getElementById('fifth-hinge').hidden = false;
 }
 
 function updateCountdown() {
@@ -525,7 +643,8 @@ function resetFourthDoor() {
     sealed: [false, false, false, false],
     messages: ['', '', '', ''],
     timestamps: ['', '', '', ''],
-    revealAt: null
+    revealAt: null,
+    transit: null
   };
   saveState();
   renderHallway();
