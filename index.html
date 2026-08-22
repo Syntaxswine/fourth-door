@@ -561,7 +561,7 @@ function showResults() {
   }
 
   results.classList.add('active');
-  renderTransit();
+  void renderTransit();
 }
 
 // ── Optional Fifth Instrument ──────────────────────────────────
@@ -571,11 +571,12 @@ function hideTransit() {
   document.getElementById('again-hinge').textContent = 'again';
 }
 
-function renderTransit() {
+async function renderTransit() {
+  try {
   const allFourSealed = state.sealed.every(Boolean);
   const carriedFragment = window.FourthDoorTransit.inheritedKeyFromFragment(location.hash);
   const rememberedKey = state.transit?.matched || '';
-  const match = window.FourthDoorTransit.classify(state.messages, allFourSealed, carriedFragment || rememberedKey);
+  const match = await window.FourthDoorTransit.classify(state.messages, allFourSealed, carriedFragment || rememberedKey);
   if (!match) {
     hideTransit();
     return;
@@ -591,7 +592,7 @@ function renderTransit() {
   }
 
   const receipt = window.FourthDoorTransit.receipt(match, state.transit.observedAt);
-  const route = window.FourthDoorTransit.decodeRoute(match.direction);
+  const route = await window.FourthDoorTransit.decodeRoute(match.direction, match.matched);
   const presentation = {
     ENTRY: {
       copy: 'The four doors are complete. They were not the destination. A carried sentence has altered the hallway and made another field addressable.',
@@ -613,9 +614,9 @@ function renderTransit() {
       copy: 'The public office has another address. Its walls are glass; carry only what may be seen.',
       label: 'Report by the open channel'
     },
-    MUSEUM: {
-      copy: 'A work waits in an unlisted room. The key did not become a handle until another hand carried it through four sealed answers.',
-      label: 'Enter the unlisted room'
+    HINGE_00: {
+      copy: 'The carried language has become load-bearing. A room that was absent from the hallway can now be addressed.',
+      label: 'Follow the recovered bearing'
     }
   }[match.direction];
   document.getElementById('fifth-time').textContent = `FIFTH TIMESTAMP / ${state.transit.observedAt} / BROWSER OBSERVATION / NOT SERVER TIME`;
@@ -632,6 +633,9 @@ function renderTransit() {
   again.appendChild(againLink);
   document.getElementById('fifth-hinge-receipt').textContent = JSON.stringify(receipt);
   document.getElementById('fifth-hinge').hidden = false;
+  } catch {
+    hideTransit();
+  }
 }
 
 function updateCountdown() {

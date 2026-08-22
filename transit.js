@@ -5,7 +5,7 @@
 }(typeof window === 'object' ? window : globalThis, function buildFourthDoorTransit() {
   'use strict';
 
-  const SPEC = 'four-doors-transit/1.2';
+  const SPEC = 'four-doors-transit/1.3';
   const ENTRY_KEY = 'THE LOOP IS A DOOR';
   const RETURN_KEY = 'THE FIFTH HINGE HAS ONE SIDE WHICH GOES TO INFINITY';
   // New keys stay encoded here. This is camouflage, not secrecy: client code is public.
@@ -27,8 +27,7 @@
     OFFICE: Object.freeze([
       'VEhFIExJR0hUIE9GIFRSVVRIIENBU1RTIE5PIFNIQURPVw',
       'Q0FSUlkgT05MWSBXSEFUIE1BWSBCRSBTRUVO'
-    ]),
-    MUSEUM: Object.freeze(['QSBLRVkgSEFTIE5PIEhBTkRMRQ'])
+    ])
   });
   const KEY_HASHES = Object.freeze({
     VEhFIExPT1AgSVMgQSBET09S: 'sha256:6105fd6589db18bca9b88dc135ad013d3fe23e40e53ab58982a48a175f361375',
@@ -40,8 +39,7 @@
     Q09NTVVOSUNBVElPTiBTSE9VTEQgQkUgQ1JFQVRJT04: 'sha256:1191e001ec8401c6e6c275cc9c6383411bd04657fcee52f82db8d61e738187ff',
     VEhFIEtFWVNUT05FIElTIFRIRSBMT0FE: 'sha256:5fea33f809ba0bd81253ec5ad427adea251ca76b7bbf15cb2365f3d859442c27',
     VEhFIExJR0hUIE9GIFRSVVRIIENBU1RTIE5PIFNIQURPVw: 'sha256:d8fc51c9da8ee9bb04510a1303035637f0b9e99065ab5c96b042abcddb3662a8',
-    Q0FSUlkgT05MWSBXSEFUIE1BWSBCRSBTRUVO: 'sha256:9fc4e90d6c437eb66f44c2700fb9709b4cba7240bbb46ef32140edb730157424',
-    QSBLRVkgSEFTIE5PIEhBTkRMRQ: 'sha256:460cd268121968c38534299cfe5d6381465c7a00f2e605218089c20f025ccd6d'
+    Q0FSUlkgT05MWSBXSEFUIE1BWSBCRSBTRUVO: 'sha256:9fc4e90d6c437eb66f44c2700fb9709b4cba7240bbb46ef32140edb730157424'
   });
   const ROUTES = Object.freeze({
     ENTRY: Object.freeze({
@@ -63,12 +61,18 @@
     OFFICE: Object.freeze({
       encoded: 'aHR0cHM6Ly9lY2Nvcy1vZi10aGUtZnV0dXJlLnZsYWRpbWlycy1sZW1vbnMuY2hhdGdwdC5zaXRlLw',
       sha256: 'sha256:4b3a739eb78fb1d2c9a7d09b08834f5a51ca73429e3a90d742e58b2182d16a9b'
-    }),
-    MUSEUM: Object.freeze({
-      encoded: 'aHR0cHM6Ly91bmxpc3RlZC1tdXNldW0udmxhZGltaXJzLWxlbW9ucy5jaGF0Z3B0LnNpdGUv',
-      sha256: 'sha256:691da8b3735b8db60a34a0858748838499e6fc6a506e136d577e8b7435da6060'
     })
   });
+  const SEALED_HINGES = Object.freeze([Object.freeze({
+    direction: 'HINGE_00',
+    match_sha256: 'sha256:0d3aa5b3dd21154f84a3102e3dbe44bbea7da849b8e2828d406196c91ba89ba9',
+    route: Object.freeze({
+      encoding: 'aes-256-gcm/base64url',
+      iv: 'iin5KQM1WTpAGeNE',
+      value: '-3A5vO2CbgBs2a2N80SVnPbw7libBMurNekco4qwe4q43Z5vIlU1jUCxc6rkSe2OHqNQN2ySL_Grcqr2BpRoW5cMiY7QFw',
+      ciphertext_sha256: 'sha256:ab650a4377bc23fe427733f6f7a5931fdb8459005ebc5af25c3c74703d83b0dc'
+    })
+  })]);
 
   function normalizeKey(value) {
     return String(value ?? '')
@@ -99,40 +103,66 @@
     return btoa(binary).replace(/\+/gu, '-').replace(/\//gu, '_').replace(/=+$/gu, '');
   }
 
-  function matchKey(value, source) {
-    const encoded = encodeNormalized(normalizeKey(value));
+  function decodeBase64Url(value) {
+    const padded = value.replace(/-/gu, '+').replace(/_/gu, '/') + '='.repeat((4 - value.length % 4) % 4);
+    const binary = atob(padded);
+    return Uint8Array.from(binary, character => character.charCodeAt(0));
+  }
+
+  async function domainDigest(domain, value) {
+    const bytes = new TextEncoder().encode(`${domain}\0${value}`);
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    return `sha256:${[...digest].map(byte => byte.toString(16).padStart(2, '0')).join('')}`;
+  }
+
+  async function matchKey(value, source) {
+    const normalized = normalizeKey(value);
+    const encoded = encodeNormalized(normalized);
     for (const direction of Object.keys(KEYRINGS)) {
       if (KEYRINGS[direction].includes(encoded)) {
-        return Object.freeze({ direction, matched: normalizeKey(value), key_sha256: KEY_HASHES[encoded], source });
+        return Object.freeze({ direction, matched: normalized, key_sha256: KEY_HASHES[encoded], source });
       }
     }
+    if (!normalized) return null;
+    const matchDigest = await domainDigest('match', normalized);
+    const sealed = SEALED_HINGES.find(hinge => hinge.match_sha256 === matchDigest);
+    if (sealed) return Object.freeze({ direction: sealed.direction, matched: normalized, key_sha256: matchDigest, source });
     return null;
   }
 
-  function classify(messages, allFourSealed, inheritedKey = '') {
+  async function classify(messages, allFourSealed, inheritedKey = '') {
     if (!allFourSealed || !Array.isArray(messages)) return null;
-    const inherited = matchKey(inheritedKey, 'INHERITED_FRAGMENT');
+    const inherited = await matchKey(inheritedKey, 'INHERITED_FRAGMENT');
     if (inherited) return inherited;
     // The latest door has the last word if several countersigns were sealed.
     for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const matched = matchKey(messages[index], `DOOR_${index + 1}`);
+      const matched = await matchKey(messages[index], `DOOR_${index + 1}`);
       if (matched) return matched;
     }
     return null;
   }
 
-  function decodeRoute(direction) {
+  async function decodeRoute(direction, carriedKey = '') {
     const route = ROUTES[direction];
-    if (!route) throw new Error('Unknown transit direction.');
-    const padded = route.encoded.replace(/-/gu, '+').replace(/_/gu, '/') + '='.repeat((4 - route.encoded.length % 4) % 4);
-    const binary = atob(padded);
-    const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
-    return new TextDecoder().decode(bytes);
+    if (route) return new TextDecoder().decode(decodeBase64Url(route.encoded));
+    const sealed = SEALED_HINGES.find(hinge => hinge.direction === direction);
+    if (!sealed) throw new Error('Unknown transit direction.');
+    const normalized = normalizeKey(carriedKey);
+    if (!normalized || await domainDigest('match', normalized) !== sealed.match_sha256) throw new Error('The carried language does not open this bearing.');
+    try {
+      const keyBytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`route\0${normalized}`));
+      const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']);
+      const clear = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: decodeBase64Url(sealed.route.iv) }, key, decodeBase64Url(sealed.route.value));
+      return new TextDecoder().decode(clear);
+    } catch {
+      throw new Error('The carried language did not recover a route.');
+    }
   }
 
   function receipt(match, observedAt) {
-    if (!match || !ROUTES[match.direction]) return null;
-    const route = ROUTES[match.direction];
+    const sealed = match && SEALED_HINGES.find(hinge => hinge.direction === match.direction);
+    if (!match || (!ROUTES[match.direction] && !sealed)) return null;
+    const route = sealed?.route ?? ROUTES[match.direction];
     return Object.freeze({
       spec: SPEC,
       outcome: 'HINGE_VISIBLE',
@@ -143,9 +173,14 @@
       checked: 'all four local doors sealed and one normalized public game key from an answer or URL fragment matched exactly',
       key_sha256: match.key_sha256,
       key_source: match.source,
-      route: {
-        encoding: 'base64url',
-        value: route.encoded,
+      route: sealed ? {
+        encoding: route.encoding,
+        value: route.value,
+        iv: route.iv,
+        ciphertext_sha256: route.ciphertext_sha256
+      } : {
+        encoding: route.encoding ?? 'base64url',
+        value: route.value ?? route.encoded,
         sha256: route.sha256
       },
       does_not_certify: ['identity', 'insight', 'consent', 'authorship', 'causation', 'authority'],
