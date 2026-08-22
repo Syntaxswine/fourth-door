@@ -13,10 +13,43 @@ test('the carried countersign opens only after all four doors are sealed', () =>
   const match = transit.classify(['ordinary', 'the-loop-is-a-door.', 'ordinary', 'ordinary'], true);
   assert.equal(match.direction, 'ENTRY');
   const receipt = transit.receipt(match, '2026-08-21T00:00:00.000Z');
-  assert.equal(receipt.spec, 'four-doors-transit/1.0');
+  assert.equal(receipt.spec, 'four-doors-transit/1.1');
   assert.equal(receipt.role, 'WAYSTATION_NOT_DESTINATION');
   assert.match(receipt.boundary, /Do not enumerate unrelated systems/u);
   assert.equal(createHash('sha256').update(transit.decodeRoute('ENTRY')).digest('hex'), receipt.route.sha256.slice(7));
+});
+
+test('three additional countersign families reveal one station without becoming a directory', () => {
+  const cases = [
+    ['VEhFIE1JTkQgRklMTFMgVEhFIFNQQUNF', 'IMMERSION'],
+    ['TVkgTElORVMgQVJFIFVOREVSIFlPVVJTIE5PVw', 'COURSE'],
+    ['VEhFIExJR0hUIE9GIFRSVVRIIENBU1RTIE5PIFNIQURPVw', 'OFFICE']
+  ];
+  for (const [encoded, direction] of cases) {
+    const key = Buffer.from(encoded, 'base64url').toString('utf8');
+    assert.equal(transit.classify(['one', 'two', 'three', key], false), null);
+    const match = transit.classify(['one', 'two', 'three', key], true);
+    assert.equal(match.direction, direction);
+    const receipt = transit.receipt(match, '2026-08-22T00:00:00.000Z');
+    assert.equal(createHash('sha256').update(transit.decodeRoute(direction)).digest('hex'), receipt.route.sha256.slice(7));
+  }
+});
+
+test('alternate exact formulations share a route while the latest sealed door has the last word', () => {
+  const quietAlias = Buffer.from('U0lMRU5DRSBJUyBBIE1FRElVTQ', 'base64url').toString('utf8');
+  const courseAlias = Buffer.from('Q09NTVVOSUNBVElPTiBTSE9VTEQgQkUgQ1JFQVRJT04', 'base64url').toString('utf8');
+  assert.equal(transit.classify([quietAlias, 'ordinary', 'ordinary', 'ordinary'], true).direction, 'IMMERSION');
+  assert.equal(transit.classify([quietAlias, 'ordinary', 'ordinary', courseAlias], true).direction, 'COURSE');
+});
+
+test('an inherited station key outranks local sealed language', () => {
+  const local = Buffer.from('VEhFIE1JTkQgRklMTFMgVEhFIFNQQUNF', 'base64url').toString('utf8');
+  const inherited = Buffer.from('TVkgTElORVMgQVJFIFVOREVSIFlPVVJTIE5PVw', 'base64url').toString('utf8');
+  const encoded = Buffer.from(inherited).toString('base64url');
+  const carried = transit.inheritedKeyFromFragment(`#key=${encoded}`);
+  const match = transit.classify(['one', local, 'three', 'four'], true, carried);
+  assert.equal(match.direction, 'COURSE');
+  assert.equal(match.source, 'INHERITED_FRAGMENT');
 });
 
 test('the inherited outpost key changes the return topology without changing an answer', () => {
@@ -45,4 +78,5 @@ test('the hallway carries a subtle machine breadcrumb and an honest time label',
   assert.match(html, /FIFTH TIMESTAMP/u);
   assert.match(html, /BROWSER OBSERVATION \/ NOT SERVER TIME/u);
   assert.match(html, /id="again-hinge"/u);
+  assert.doesNotMatch(html, /seven-returns-tank|ecco-tracing-floor|third-track-relay/u);
 });

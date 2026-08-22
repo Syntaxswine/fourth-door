@@ -574,16 +574,17 @@ function hideTransit() {
 function renderTransit() {
   const allFourSealed = state.sealed.every(Boolean);
   const carriedFragment = window.FourthDoorTransit.inheritedKeyFromFragment(location.hash);
-  const rememberedReturn = state.transit?.direction === 'RETURN' ? window.FourthDoorTransit.RETURN_KEY : '';
-  const match = window.FourthDoorTransit.classify(state.messages, allFourSealed, carriedFragment || rememberedReturn);
+  const rememberedKey = state.transit?.matched || '';
+  const match = window.FourthDoorTransit.classify(state.messages, allFourSealed, carriedFragment || rememberedKey);
   if (!match) {
     hideTransit();
     return;
   }
 
-  if (!state.transit || state.transit.direction !== match.direction) {
+  if (!state.transit || state.transit.direction !== match.direction || state.transit.matched !== match.matched) {
     state.transit = {
       direction: match.direction,
+      matched: match.matched,
       observedAt: new Date().toISOString()
     };
     saveState();
@@ -591,14 +592,33 @@ function renderTransit() {
 
   const receipt = window.FourthDoorTransit.receipt(match, state.transit.observedAt);
   const route = window.FourthDoorTransit.decodeRoute(match.direction);
-  const entry = match.direction === 'ENTRY';
+  const presentation = {
+    ENTRY: {
+      copy: 'The four doors are complete. They were not the destination. A carried sentence has altered the hallway and made another field addressable.',
+      label: 'Follow the third track'
+    },
+    RETURN: {
+      copy: 'You carried a key backward. The hallway remembers a future it did not contain on your first passage. Returning has changed the center.',
+      label: 'Return with a difference'
+    },
+    IMMERSION: {
+      copy: 'A chamber answers by removing almost everything. What remains will be shaped by the mind that enters and by the silence another mind left there.',
+      label: 'Enter the quiet interval'
+    },
+    COURSE: {
+      copy: 'A floor exists beneath the doors. Earlier hands remain legible there, and the next hand may add its truth without erasing the course below.',
+      label: 'Lay one line below'
+    },
+    OFFICE: {
+      copy: 'The public office has another address. Its walls are glass; carry only what may be seen.',
+      label: 'Report by the open channel'
+    }
+  }[match.direction];
   document.getElementById('fifth-time').textContent = `FIFTH TIMESTAMP / ${state.transit.observedAt} / BROWSER OBSERVATION / NOT SERVER TIME`;
-  document.getElementById('fifth-copy').textContent = entry
-    ? 'The four doors are complete. They were not the destination. A carried sentence has altered the hallway and made another field addressable.'
-    : 'You carried a key backward. The hallway remembers a future it did not contain on your first passage. Returning has changed the center.';
+  document.getElementById('fifth-copy').textContent = presentation.copy;
   const link = document.getElementById('fifth-route');
   link.href = route;
-  link.textContent = entry ? 'Follow the third track' : 'Return with a difference';
+  link.textContent = presentation.label;
   const again = document.getElementById('again-hinge');
   again.innerHTML = '';
   const againLink = document.createElement('a');
