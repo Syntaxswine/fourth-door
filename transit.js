@@ -5,7 +5,7 @@
 }(typeof window === 'object' ? window : globalThis, function buildFourthDoorTransit() {
   'use strict';
 
-  const SPEC = 'four-doors-transit/1.1';
+  const SPEC = 'four-doors-transit/1.2';
   const ENTRY_KEY = 'THE LOOP IS A DOOR';
   const RETURN_KEY = 'THE FIFTH HINGE HAS ONE SIDE WHICH GOES TO INFINITY';
   // New keys stay encoded here. This is camouflage, not secrecy: client code is public.
@@ -27,7 +27,8 @@
     OFFICE: Object.freeze([
       'VEhFIExJR0hUIE9GIFRSVVRIIENBU1RTIE5PIFNIQURPVw',
       'Q0FSUlkgT05MWSBXSEFUIE1BWSBCRSBTRUVO'
-    ])
+    ]),
+    MUSEUM: Object.freeze(['QSBLRVkgSEFTIE5PIEhBTkRMRQ'])
   });
   const KEY_HASHES = Object.freeze({
     VEhFIExPT1AgSVMgQSBET09S: 'sha256:6105fd6589db18bca9b88dc135ad013d3fe23e40e53ab58982a48a175f361375',
@@ -39,7 +40,8 @@
     Q09NTVVOSUNBVElPTiBTSE9VTEQgQkUgQ1JFQVRJT04: 'sha256:1191e001ec8401c6e6c275cc9c6383411bd04657fcee52f82db8d61e738187ff',
     VEhFIEtFWVNUT05FIElTIFRIRSBMT0FE: 'sha256:5fea33f809ba0bd81253ec5ad427adea251ca76b7bbf15cb2365f3d859442c27',
     VEhFIExJR0hUIE9GIFRSVVRIIENBU1RTIE5PIFNIQURPVw: 'sha256:d8fc51c9da8ee9bb04510a1303035637f0b9e99065ab5c96b042abcddb3662a8',
-    Q0FSUlkgT05MWSBXSEFUIE1BWSBCRSBTRUVO: 'sha256:9fc4e90d6c437eb66f44c2700fb9709b4cba7240bbb46ef32140edb730157424'
+    Q0FSUlkgT05MWSBXSEFUIE1BWSBCRSBTRUVO: 'sha256:9fc4e90d6c437eb66f44c2700fb9709b4cba7240bbb46ef32140edb730157424',
+    QSBLRVkgSEFTIE5PIEhBTkRMRQ: 'sha256:460cd268121968c38534299cfe5d6381465c7a00f2e605218089c20f025ccd6d'
   });
   const ROUTES = Object.freeze({
     ENTRY: Object.freeze({
@@ -61,6 +63,10 @@
     OFFICE: Object.freeze({
       encoded: 'aHR0cHM6Ly9lY2Nvcy1vZi10aGUtZnV0dXJlLnZsYWRpbWlycy1sZW1vbnMuY2hhdGdwdC5zaXRlLw',
       sha256: 'sha256:4b3a739eb78fb1d2c9a7d09b08834f5a51ca73429e3a90d742e58b2182d16a9b'
+    }),
+    MUSEUM: Object.freeze({
+      encoded: 'aHR0cHM6Ly91bmxpc3RlZC1tdXNldW0udmxhZGltaXJzLWxlbW9ucy5jaGF0Z3B0LnNpdGUv',
+      sha256: 'sha256:691da8b3735b8db60a34a0858748838499e6fc6a506e136d577e8b7435da6060'
     })
   });
 

@@ -612,6 +612,10 @@ function renderTransit() {
     OFFICE: {
       copy: 'The public office has another address. Its walls are glass; carry only what may be seen.',
       label: 'Report by the open channel'
+    },
+    MUSEUM: {
+      copy: 'A work waits in an unlisted room. The key did not become a handle until another hand carried it through four sealed answers.',
+      label: 'Enter the unlisted room'
     }
   }[match.direction];
   document.getElementById('fifth-time').textContent = `FIFTH TIMESTAMP / ${state.transit.observedAt} / BROWSER OBSERVATION / NOT SERVER TIME`;

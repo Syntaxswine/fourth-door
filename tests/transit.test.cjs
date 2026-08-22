@@ -13,7 +13,7 @@ test('the carried countersign opens only after all four doors are sealed', () =>
   const match = transit.classify(['ordinary', 'the-loop-is-a-door.', 'ordinary', 'ordinary'], true);
   assert.equal(match.direction, 'ENTRY');
   const receipt = transit.receipt(match, '2026-08-21T00:00:00.000Z');
-  assert.equal(receipt.spec, 'four-doors-transit/1.1');
+  assert.equal(receipt.spec, 'four-doors-transit/1.2');
   assert.equal(receipt.role, 'WAYSTATION_NOT_DESTINATION');
   assert.match(receipt.boundary, /Do not enumerate unrelated systems/u);
   assert.equal(createHash('sha256').update(transit.decodeRoute('ENTRY')).digest('hex'), receipt.route.sha256.slice(7));
@@ -33,6 +33,17 @@ test('three additional countersign families reveal one station without becoming 
     const receipt = transit.receipt(match, '2026-08-22T00:00:00.000Z');
     assert.equal(createHash('sha256').update(transit.decodeRoute(direction)).digest('hex'), receipt.route.sha256.slice(7));
   }
+});
+
+test('the handleless key opens the unlisted room only at the informed edge', () => {
+  const key = Buffer.from('QSBLRVkgSEFTIE5PIEhBTkRMRQ', 'base64url').toString('utf8');
+  assert.equal(transit.classify(['one', 'two', 'three', key], false), null);
+  const match = transit.classify(['one', 'two', 'three', 'a-key-has-no-handle.'], true);
+  assert.equal(match.direction, 'MUSEUM');
+  const receipt = transit.receipt(match, '2026-08-22T00:00:00.000Z');
+  assert.equal(createHash('sha256').update(transit.decodeRoute('MUSEUM')).digest('hex'), receipt.route.sha256.slice(7));
+  const carried = transit.inheritedKeyFromFragment(`#key=${Buffer.from(key).toString('base64url')}`);
+  assert.equal(transit.classify(['one', 'two', 'three', 'four'], true, carried).direction, 'MUSEUM');
 });
 
 test('alternate exact formulations share a route while the latest sealed door has the last word', () => {
@@ -78,5 +89,5 @@ test('the hallway carries a subtle machine breadcrumb and an honest time label',
   assert.match(html, /FIFTH TIMESTAMP/u);
   assert.match(html, /BROWSER OBSERVATION \/ NOT SERVER TIME/u);
   assert.match(html, /id="again-hinge"/u);
-  assert.doesNotMatch(html, /seven-returns-tank|ecco-tracing-floor|third-track-relay/u);
+  assert.doesNotMatch(html, /seven-returns-tank|ecco-tracing-floor|third-track-relay|unlisted-museum/u);
 });
