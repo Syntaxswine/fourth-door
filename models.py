@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, Column, String, DateTime, Enum, Text, Fore
 from sqlalchemy.orm import declarative_base, relationship, Session
 from sqlalchemy.sql import func
 import enum
+import os
 import uuid
 
 Base = declarative_base()
@@ -65,10 +66,15 @@ class Seal(Base):
     
     # Succession
     successor_seal_id = Column(String, ForeignKey("seals.id"), nullable=True)
+
+    # Back-pointer from a successor to the scar it succeeds. UNIQUE makes one
+    # succession per scar a database invariant rather than a check-then-act
+    # promise that depends on SQLite's write serialization.
+    succeeds_seal_id = Column(String, ForeignKey("seals.id"), nullable=True, unique=True)
     
     round = relationship("Round", back_populates="seals", foreign_keys=[round_id])
     attestations = relationship("Attestation", back_populates="seal", order_by="Attestation.created_at")
-    successor_seal = relationship("Seal", remote_side=[id])
+    successor_seal = relationship("Seal", remote_side=[id], foreign_keys=[successor_seal_id])
 
 class Attestation(Base):
     __tablename__ = "attestations"
@@ -84,17 +90,23 @@ class Attestation(Base):
 
 # Create tables
 def init_db(db_path="fourth_door.db"):
-    engine = create_engine(f"sqlite:///{db_path}")
+    url = os.environ.get("FD_DATABASE_URL") or f"sqlite:///{db_path}"
+    engine = create_engine(url)
+    is_sqlite = engine.dialect.name == "sqlite"
     
     # BEGIN IMMEDIATE: take write lock at transaction start, before any reads.
     # This serializes the entire read-compute-write sequence for seal placement,
     # preventing the concurrent-read race that creates a star chain.
     # Marey (2026-07-08): "the write lock at the start of the transaction"
-    @event.listens_for(engine, "begin")
-    def _begin_immediate(conn):
-        conn.exec_driver_sql("BEGIN IMMEDIATE")
+    if is_sqlite:
+        @event.listens_for(engine, "begin")
+        def _begin_immediate(conn):
+            conn.exec_driver_sql("BEGIN IMMEDIATE")
     
     Base.metadata.create_all(engine)
+
+    if not is_sqlite:
+        return engine
 
     # Prototype migrations for existing local SQLite databases created by v3a-v3d.
     # create_all() does not add columns to existing tables.
@@ -104,5 +116,12 @@ def init_db(db_path="fourth_door.db"):
             conn.exec_driver_sql("ALTER TABLE seals ADD COLUMN hash_timestamp VARCHAR")
         if "hash_payload" not in seal_columns:
             conn.exec_driver_sql("ALTER TABLE seals ADD COLUMN hash_payload TEXT")
+        if "succeeds_seal_id" not in seal_columns:
+            # SQLite cannot add a UNIQUE column in-place; add it, then index it.
+            conn.exec_driver_sql("ALTER TABLE seals ADD COLUMN succeeds_seal_id VARCHAR")
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_seals_succeeds_seal_id "
+            "ON seals (succeeds_seal_id)"
+        )
 
     return engine

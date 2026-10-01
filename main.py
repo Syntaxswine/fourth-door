@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 import hashlib
 import json
 import os
@@ -292,9 +293,16 @@ def claim_succession(
         hash_timestamp=hash_timestamp,
         hash_payload=hash_payload,
         state=SealState.CLOSED,
+        succeeds_seal_id=original_seal.id,
     )
     db.add(successor_seal)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        # The database constraint is the real enforcement; the earlier read is
+        # only a fast, polite rejection and may race on concurrent backends.
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Succession already claimed for this seal")
 
     attestation = Attestation(
         seal_id=successor_seal.id,
